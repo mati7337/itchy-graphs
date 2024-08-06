@@ -1,0 +1,7 @@
+# Subdomains with underscores are broken in urllib3 2.*
+# See: https://github.com/python/cpython/issues/103490
+urllib3<2.0.0
+requests
+requests-cache
+beautifulsoup4
+lxml

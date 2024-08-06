@@ -1,0 +1,4 @@
+__pycache__/
+venv/
+output/
+itch_cache.sqlite
