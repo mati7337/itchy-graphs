@@ -1,20 +1,45 @@
 #include <iostream>
 #include <chrono>
 #include <rapidjson/document.h>
+#include <argparse/argparse.hpp>
 #include "commenters.h"
 
 namespace chrono = std::chrono;
 
 int main(int argc, char* argv[])
 {
-    if (argc != 2)
+    argparse::ArgumentParser program(
+            "make_graph", "", argparse::default_arguments::help);
+
+    program.add_argument("input")
+           .help("The itch.io comments download path");
+    program.add_argument("-e", "--edge-threshold")
+           .help("Edge threshold, edges with weights lower than this will be ignored")
+           .default_value(0)
+           .scan<'g', float>();
+    program.add_argument("-n", "--node-threshold")
+           .help("Node threshold, nodes (games) with less than this amount of"
+                 "commenters will be ignored")
+           .default_value(0)
+           .scan<'i', int>();
+    program.add_argument("-m", "--method")
+           .help("Methods to calculate the similarity:\n"
+                 "jaccard - intersection(A, B) / sum(A, B)\n"
+                 "overlap_coefficient - intersection(A, B) / size(A, B)")
+           .default_value(std::string{"jaccard"})
+           .choices("jaccard", "overlap_coefficient");
+
+    try
     {
-        std::cerr << "Usage:\n";
-        std::cerr << " " << argv[0] << " ITCH_DOWNLOAD_PATH\n";
-        return -1;
+        program.parse_args(argc, argv);
+    } catch (const std::exception& err)
+    {
+        std::cerr << err.what() << "\n";
+        std::cerr << program;
+        return 1;
     }
 
-    std::string itch_path = argv[1];
+    std::string itch_path = program.get<std::string>("input");
 
     Commenters commenters;
 
@@ -24,7 +49,11 @@ int main(int argc, char* argv[])
 
     auto time_comments_loaded = chrono::steady_clock::now();
     std::cerr << "Creating graph\n";
-    commenters.create_graph();
+    commenters.create_graph(
+            program.get<int>("--node-threshold"),
+            program.get<float>("--edge-threshold"),
+            commenters.method_from_str(program.get<std::string>("--method"))
+    );
 
     auto time_end = chrono::steady_clock::now();
 

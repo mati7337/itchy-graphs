@@ -12,6 +12,17 @@
 namespace fs = std::filesystem;
 namespace rj = rapidjson;
 
+static const std::map<std::string,
+                      Commenters::Similarity_method> method_from_str_map = {
+    {"jaccard", Commenters::JACCARD},
+    {"overlap_coefficient", Commenters::OVERLAP_COEFFICIENT}
+};
+
+Commenters::Similarity_method Commenters::method_from_str(const std::string& method_str)
+{
+    return method_from_str_map.find(method_str)->second;
+}
+
 void Commenters::add_commenter(const char* game, const char* commenter)
 {
     int commenter_id;
@@ -215,7 +226,9 @@ int Commenters::commenters_intersection(std::unordered_set<int>& game_a,
     return counter;
 }
 
-void Commenters::create_graph()
+void Commenters::create_graph(int node_threshold,
+                              float edge_threshold,
+                              Similarity_method method)
 {
     // Creates and prints a graph to stdout
     std::cout << "graph itch {\n";
@@ -225,7 +238,7 @@ void Commenters::create_graph()
 
     for(const auto& [game, commenters] : this->commenters)
     {
-        if (commenters.size() < 10)
+        if (commenters.size() < node_threshold)
             continue;
 
         // Double-quotes can be escaped using \", but game names shouldn't
@@ -256,16 +269,22 @@ void Commenters::create_graph()
             int set_intersection = this->commenters_intersection(
                     this->commenters[game_i],
                     this->commenters[game_j]);
-            //int min_commenters = std::min(this->commenters[game_i].size(),
-            //                              this->commenters[game_j].size());
-            int set_union = this->commenters[game_i].size()
-                            + this->commenters[game_j].size()
-                            - set_intersection;
-            //float weight = (float)set_intersection / min_commenters;
-            float weight = (float)set_intersection / set_union;
 
-            //if (weight < 0.4)
-            if (weight < 0.08)
+            float weight;
+            if (method == Similarity_method::JACCARD)
+            {
+                int set_union = this->commenters[game_i].size()
+                                + this->commenters[game_j].size()
+                                - set_intersection;
+                weight = (float)set_intersection / set_union;
+            } else if (method == Similarity_method::OVERLAP_COEFFICIENT)
+            {
+                int min_commenters = std::min(this->commenters[game_i].size(),
+                                              this->commenters[game_j].size());
+                weight = (float)set_intersection / min_commenters;
+            }
+
+            if (weight < edge_threshold)
                 continue;
 
             std::cout << "\t\"" << game_i << "\" -- \"" << game_j << "\""
